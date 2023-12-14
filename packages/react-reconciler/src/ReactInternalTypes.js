@@ -202,6 +202,7 @@ export type Fiber = {
 
   _debugSource?: Source | null,
   _debugOwner?: Fiber | null,
+  _debugStack?: StackContainer | null,
   _debugIsCurrentlyTiming?: boolean,
   _debugNeedsRemount?: boolean,
 

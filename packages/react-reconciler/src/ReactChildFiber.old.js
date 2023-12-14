@@ -10,7 +10,7 @@
 import type {ReactElement} from 'shared/ReactElementType';
 import type {ReactPortal} from 'shared/ReactTypes';
 import type {Fiber} from './ReactInternalTypes';
-import type {Lanes} from './ReactFiberLane';
+import type {Lanes} from './ReactFiberLane.old';
 
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 import {
@@ -28,6 +28,7 @@ import {
 } from 'shared/ReactSymbols';
 import {ClassComponent, HostText, HostPortal, Fragment} from './ReactWorkTags';
 import isArray from 'shared/isArray';
+import {warnAboutStringRefs} from 'shared/ReactFeatureFlags';
 import {checkPropStringCoercion} from 'shared/CheckStringCoercion';
 
 import {
@@ -37,10 +38,11 @@ import {
   createFiberFromFragment,
   createFiberFromText,
   createFiberFromPortal,
-} from './ReactFiber';
-import {isCompatibleFamilyForHotReloading} from './ReactFiberHotReloading';
-import {getIsHydrating} from './ReactFiberHydrationContext';
-import {pushTreeFork} from './ReactFiberTreeContext';
+} from './ReactFiber.old';
+import {isCompatibleFamilyForHotReloading} from './ReactFiberHotReloading.old';
+import {StrictLegacyMode} from './ReactTypeOfMode';
+import {getIsHydrating} from './ReactFiberHydrationContext.old';
+import {pushTreeFork} from './ReactFiberTreeContext.old';
 
 let didWarnAboutMaps;
 let didWarnAboutGenerators;
@@ -52,15 +54,15 @@ let warnForMissingKey = (child: mixed, returnFiber: Fiber) => {};
 if (__DEV__) {
   didWarnAboutMaps = false;
   didWarnAboutGenerators = false;
-  didWarnAboutStringRefs = ({}: {[string]: boolean});
+  didWarnAboutStringRefs = {};
 
   /**
    * Warn if there's no key explicitly set on dynamic arrays of children or
    * object keys are not valid. This allows us to keep track of children between
    * updates.
    */
-  ownerHasKeyUseWarning = ({}: {[string]: boolean});
-  ownerHasFunctionTypeWarning = ({}: {[string]: boolean});
+  ownerHasKeyUseWarning = {};
+  ownerHasFunctionTypeWarning = {};
 
   warnForMissingKey = (child: mixed, returnFiber: Fiber) => {
     if (child === null || typeof child !== 'object') {
@@ -95,7 +97,7 @@ if (__DEV__) {
   };
 }
 
-function isReactClass(type: any) {
+function isReactClass(type) {
   return type.prototype && type.prototype.isReactComponent;
 }
 
@@ -111,7 +113,10 @@ function coerceRef(
     typeof mixedRef !== 'object'
   ) {
     if (__DEV__) {
+      // TODO: Clean this up once we turn on the string ref warning for
+      // everyone, because the strict mode case will no longer be relevant
       if (
+        (returnFiber.mode & StrictLegacyMode || warnAboutStringRefs) &&
         // We warn in ReactElement.js if owner and self are equal for string refs
         // because these cannot be automatically converted to an arrow function
         // using a codemod. Therefore, we don't have to warn about string refs again.
@@ -133,15 +138,26 @@ function coerceRef(
         const componentName =
           getComponentNameFromFiber(returnFiber) || 'Component';
         if (!didWarnAboutStringRefs[componentName]) {
-          console.error(
-            'Component "%s" contains the string ref "%s". Support for string refs ' +
-              'will be removed in a future major release. We recommend using ' +
-              'useRef() or createRef() instead. ' +
-              'Learn more about using refs safely here: ' +
-              'https://reactjs.org/link/strict-mode-string-ref',
-            componentName,
-            mixedRef,
-          );
+          if (warnAboutStringRefs) {
+            console.error(
+              'Component "%s" contains the string ref "%s". Support for string refs ' +
+                'will be removed in a future major release. We recommend using ' +
+                'useRef() or createRef() instead. ' +
+                'Learn more about using refs safely here: ' +
+                'https://reactjs.org/link/strict-mode-string-ref',
+              componentName,
+              mixedRef,
+            );
+          } else {
+            console.error(
+              'A string ref, "%s", has been found within a strict mode tree. ' +
+                'String refs are a source of potential bugs and should be avoided. ' +
+                'We recommend using useRef() or createRef() instead. ' +
+                'Learn more about using refs safely here: ' +
+                'https://reactjs.org/link/strict-mode-string-ref',
+              mixedRef,
+            );
+          }
           didWarnAboutStringRefs[componentName] = true;
         }
       }
@@ -187,7 +203,7 @@ function coerceRef(
       ) {
         return current.ref;
       }
-      const ref = function (value: mixed) {
+      const ref = function(value) {
         const refs = resolvedInst.refs;
         if (value === null) {
           delete refs[stringRef];
@@ -251,7 +267,7 @@ function warnOnFunctionType(returnFiber: Fiber) {
   }
 }
 
-function resolveLazy(lazyType: any) {
+function resolveLazy(lazyType) {
   const payload = lazyType._payload;
   const init = lazyType._init;
   return init(payload);
@@ -268,9 +284,7 @@ type ChildReconciler = (
 // to be able to optimize each path individually by branching early. This needs
 // a compiler or we can do it manually. Helpers that don't need this branching
 // live outside of this function.
-function createChildReconciler(
-  shouldTrackSideEffects: boolean,
-): ChildReconciler {
+function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
   function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
     if (!shouldTrackSideEffects) {
       // Noop.
@@ -769,7 +783,7 @@ function createChildReconciler(
 
     if (__DEV__) {
       // First, validate keys.
-      let knownKeys: Set<string> | null = null;
+      let knownKeys = null;
       for (let i = 0; i < newChildren.length; i++) {
         const child = newChildren[i];
         knownKeys = warnOnInvalidKey(child, knownKeys, returnFiber);
@@ -962,7 +976,7 @@ function createChildReconciler(
       // We'll get a different iterator later for the main pass.
       const newChildren = iteratorFn.call(newChildrenIterable);
       if (newChildren) {
-        let knownKeys: Set<string> | null = null;
+        let knownKeys = null;
         let step = newChildren.next();
         for (; !step.done; step = newChildren.next()) {
           const child = step.value;
@@ -1357,8 +1371,9 @@ function createChildReconciler(
   return reconcileChildFibers;
 }
 
-export const reconcileChildFibers: ChildReconciler =
-  createChildReconciler(true);
+export const reconcileChildFibers: ChildReconciler = createChildReconciler(
+  true,
+);
 export const mountChildFibers: ChildReconciler = createChildReconciler(false);
 
 export function cloneChildFibers(

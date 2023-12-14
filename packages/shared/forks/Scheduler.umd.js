@@ -29,6 +29,8 @@ const {
   unstable_LowPriority,
   unstable_IdlePriority,
   unstable_forceFrameRate,
+  unstable_linkStack,
+  unstable_linkStackCallback,
 
   // this doesn't actually exist on the scheduler, but it *does*
   // on scheduler/unstable_mock, which we'll need inside act()
@@ -59,4 +61,6 @@ export {
   unstable_flushAllWithoutAsserting,
   unstable_yieldValue,
   unstable_setDisableYieldValue,
+  unstable_linkStack,
+  unstable_linkStackCallback,
 };

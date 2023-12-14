@@ -8,6 +8,7 @@
  */
 
 import type {PriorityLevel} from '../SchedulerPriorities';
+import type {StackContainer} from './Scheduler';
 
 declare class TaskController {
   constructor(priority?: string): TaskController;
@@ -67,7 +68,46 @@ export function unstable_requestPaint() {
   // Since we yield every frame regardless, `requestPaint` has no effect.
 }
 
+<<<<<<< Updated upstream
 type SchedulerCallback<T> = (didTimeout_DEPRECATED: boolean) =>
+||||||| Stash base
+type SchedulerCallback<T> = (
+  didTimeout_DEPRECATED: boolean,
+) =>
+=======
+const intrinsicCall = Function.call.bind(Function.call);
+function linkStack(name: string): StackContainer {
+  if (__DEV__ && typeof console === 'object' && 'createTask' in console) {
+    /* eslint-disable react-internal/no-production-logging */
+    // $FlowFixMe[prop-missing] Chrome only API
+    const task = console.createTask(name);
+    return task.run.bind(task);
+  }
+  return intrinsicCall;
+}
+
+function linkStackCallback<T: (...args: Array<any>) => any>(
+  name: string,
+  callback: T,
+): T {
+  if (__DEV__) {
+    const task = linkStack(name);
+    if (task !== intrinsicCall)
+      return function() {
+        task.run(callback.bind(this, ...arguments));
+      };
+  }
+  return callback;
+}
+export {
+  linkStack as unstable_linkStack,
+  linkStackCallback as unstable_linkStackCallback,
+};
+
+type SchedulerCallback<T> = (
+  didTimeout_DEPRECATED: boolean,
+) =>
+>>>>>>> Stashed changes
   | T
   // May return a continuation
   | SchedulerCallback<T>;
@@ -75,7 +115,7 @@ type SchedulerCallback<T> = (didTimeout_DEPRECATED: boolean) =>
 export function unstable_scheduleCallback<T>(
   priorityLevel: PriorityLevel,
   callback: SchedulerCallback<T>,
-  options?: {delay?: number},
+  options?: {delay?: number, name?: string},
 ): CallbackNode {
   let postTaskPriority;
   switch (priorityLevel) {
@@ -106,9 +146,18 @@ export function unstable_scheduleCallback<T>(
     _controller: controller,
   };
 
+  const name = options && options.name ? options.name : 'scheduler';
+
   scheduler
     .postTask(
-      runTask.bind(null, priorityLevel, postTaskPriority, node, callback),
+      runTask.bind(
+        null,
+        priorityLevel,
+        postTaskPriority,
+        node,
+        name,
+        linkStackCallback(name, callback),
+      ),
       postTaskOptions,
     )
     .catch(handleAbortError);
@@ -120,6 +169,7 @@ function runTask<T>(
   priorityLevel: PriorityLevel,
   postTaskPriority: PostTaskPriorityLevel,
   node: CallbackNode,
+  name: string,
   callback: SchedulerCallback<T>,
 ) {
   deadline = getCurrentTime() + yieldInterval;
@@ -129,7 +179,10 @@ function runTask<T>(
     const result = callback(didTimeout_DEPRECATED);
     if (typeof result === 'function') {
       // Assume this is a continuation
-      const continuation: SchedulerCallback<T> = (result: any);
+      const continuation: SchedulerCallback<T> = (linkStackCallback(
+        name,
+        (result: any),
+      ): any);
       const continuationController = new TaskController();
       const continuationOptions = {
         priority: postTaskPriority,
@@ -145,6 +198,7 @@ function runTask<T>(
             priorityLevel,
             postTaskPriority,
             node,
+            name,
             continuation,
           ),
           continuationOptions,

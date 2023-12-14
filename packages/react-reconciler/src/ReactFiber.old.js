@@ -13,18 +13,18 @@ import type {Fiber} from './ReactInternalTypes';
 import type {RootTag} from './ReactRootTags';
 import type {WorkTag} from './ReactWorkTags';
 import type {TypeOfMode} from './ReactTypeOfMode';
-import type {Lanes} from './ReactFiberLane';
+import type {Lanes} from './ReactFiberLane.old';
 import type {SuspenseInstance} from './ReactFiberHostConfig';
 import type {
   OffscreenProps,
   OffscreenInstance,
 } from './ReactFiberOffscreenComponent';
-import type {TracingMarkerInstance} from './ReactFiberTracingMarkerComponent';
+import type {TracingMarkerInstance} from './ReactFiberTracingMarkerComponent.old';
 
 import {
   supportsResources,
   supportsSingletons,
-  isHostHoistableType,
+  isHostResourceType,
   isHostSingletonType,
 } from './ReactFiberHostConfig';
 import {
@@ -49,7 +49,7 @@ import {
   HostComponent,
   HostText,
   HostPortal,
-  HostHoistable,
+  HostResource,
   HostSingleton,
   ForwardRef,
   Fragment,
@@ -72,13 +72,13 @@ import {
 } from './ReactWorkTags';
 import {OffscreenVisible} from './ReactFiberOffscreenComponent';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
-import {isDevToolsPresent} from './ReactFiberDevToolsHook';
+import {isDevToolsPresent} from './ReactFiberDevToolsHook.old';
 import {
   resolveClassForHotReloading,
   resolveFunctionForHotReloading,
   resolveForwardRefForHotReloading,
-} from './ReactFiberHotReloading';
-import {NoLanes} from './ReactFiberLane';
+} from './ReactFiberHotReloading.old';
+import {NoLanes} from './ReactFiberLane.old';
 import {
   NoMode,
   ConcurrentMode,
@@ -106,12 +106,9 @@ import {
   REACT_CACHE_TYPE,
   REACT_TRACING_MARKER_TYPE,
 } from 'shared/ReactSymbols';
-import {TransitionTracingMarker} from './ReactFiberTracingMarkerComponent';
-import {
-  detachOffscreenInstance,
-  attachOffscreenInstance,
-} from './ReactFiberCommitWork';
-import {getHostContext} from './ReactFiberHostContext';
+import {TransitionTracingMarker} from './ReactFiberTracingMarkerComponent.old';
+import {detachOffscreenInstance} from './ReactFiberCommitWork.old';
+import {getHostContext} from './ReactFiberHostContext.old';
 
 export type {Fiber};
 
@@ -132,7 +129,6 @@ if (__DEV__) {
 }
 
 function FiberNode(
-  this: $FlowFixMe,
   tag: WorkTag,
   pendingProps: mixed,
   key: null | string,
@@ -152,7 +148,6 @@ function FiberNode(
   this.index = 0;
 
   this.ref = null;
-  this.refCleanup = null;
 
   this.pendingProps = pendingProps;
   this.memoizedProps = null;
@@ -226,7 +221,7 @@ function FiberNode(
 //    is faster.
 // 5) It should be easy to port this to a C struct and keep a C implementation
 //    compatible.
-const createFiber = function (
+const createFiber = function(
   tag: WorkTag,
   pendingProps: mixed,
   key: null | string,
@@ -343,7 +338,6 @@ export function createWorkInProgress(current: Fiber, pendingProps: any): Fiber {
   workInProgress.sibling = current.sibling;
   workInProgress.index = current.index;
   workInProgress.ref = current.ref;
-  workInProgress.refCleanup = current.refCleanup;
 
   if (enableProfilerTimer) {
     workInProgress.selfBaseDuration = current.selfBaseDuration;
@@ -513,15 +507,15 @@ export function createFiberFromTypeAndProps(
       supportsSingletons
     ) {
       const hostContext = getHostContext();
-      fiberTag = isHostHoistableType(type, pendingProps, hostContext)
-        ? HostHoistable
+      fiberTag = isHostResourceType(type, pendingProps, hostContext)
+        ? HostResource
         : isHostSingletonType(type)
         ? HostSingleton
         : HostComponent;
     } else if (enableFloat && supportsResources) {
       const hostContext = getHostContext();
-      fiberTag = isHostHoistableType(type, pendingProps, hostContext)
-        ? HostHoistable
+      fiberTag = isHostResourceType(type, pendingProps, hostContext)
+        ? HostResource
         : HostComponent;
     } else if (enableHostSingletons && supportsSingletons) {
       fiberTag = isHostSingletonType(type) ? HostSingleton : HostComponent;
@@ -757,13 +751,11 @@ export function createFiberFromOffscreen(
   fiber.lanes = lanes;
   const primaryChildInstance: OffscreenInstance = {
     _visibility: OffscreenVisible,
-    _pendingVisibility: OffscreenVisible,
     _pendingMarkers: null,
     _retryCache: null,
     _transitions: null,
     _current: null,
     detach: () => detachOffscreenInstance(primaryChildInstance),
-    attach: () => attachOffscreenInstance(primaryChildInstance),
   };
   fiber.stateNode = primaryChildInstance;
   return fiber;
@@ -782,13 +774,11 @@ export function createFiberFromLegacyHidden(
   // the offscreen implementation, which depends on a state node
   const instance: OffscreenInstance = {
     _visibility: OffscreenVisible,
-    _pendingVisibility: OffscreenVisible,
     _pendingMarkers: null,
     _transitions: null,
     _retryCache: null,
     _current: null,
     detach: () => detachOffscreenInstance(instance),
-    attach: () => attachOffscreenInstance(instance),
   };
   fiber.stateNode = instance;
   return fiber;
@@ -893,7 +883,6 @@ export function assignFiberPropertiesInDEV(
   target.sibling = source.sibling;
   target.index = source.index;
   target.ref = source.ref;
-  target.refCleanup = source.refCleanup;
   target.pendingProps = source.pendingProps;
   target.memoizedProps = source.memoizedProps;
   target.updateQueue = source.updateQueue;

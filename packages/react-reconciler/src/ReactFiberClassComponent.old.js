@@ -8,8 +8,8 @@
  */
 
 import type {Fiber} from './ReactInternalTypes';
-import type {Lanes} from './ReactFiberLane';
-import type {UpdateQueue} from './ReactFiberClassUpdateQueue';
+import type {Lanes} from './ReactFiberLane.old';
+import type {UpdateQueue} from './ReactFiberClassUpdateQueue.old';
 import type {Flags} from './ReactFiberFlags';
 
 import {
@@ -23,9 +23,10 @@ import {
   disableLegacyContext,
   enableDebugTracing,
   enableSchedulingProfiler,
+  warnAboutDeprecatedLifecycles,
   enableLazyContextPropagation,
 } from 'shared/ReactFeatureFlags';
-import ReactStrictModeWarnings from './ReactStrictModeWarnings';
+import ReactStrictModeWarnings from './ReactStrictModeWarnings.old';
 import {isMounted} from './ReactFiberTreeReflection';
 import {get as getInstance, set as setInstance} from 'shared/ReactInstanceMap';
 import shallowEqual from 'shared/shallowEqual';
@@ -35,7 +36,7 @@ import assign from 'shared/assign';
 import isArray from 'shared/isArray';
 import {REACT_CONTEXT_TYPE, REACT_PROVIDER_TYPE} from 'shared/ReactSymbols';
 
-import {resolveDefaultProps} from './ReactFiberLazyComponent';
+import {resolveDefaultProps} from './ReactFiberLazyComponent.old';
 import {
   DebugTracingMode,
   NoMode,
@@ -54,31 +55,29 @@ import {
   ForceUpdate,
   initializeUpdateQueue,
   cloneUpdateQueue,
-} from './ReactFiberClassUpdateQueue';
-import {NoLanes} from './ReactFiberLane';
+} from './ReactFiberClassUpdateQueue.old';
+import {NoLanes} from './ReactFiberLane.old';
 import {
   cacheContext,
   getMaskedContext,
   getUnmaskedContext,
   hasContextChanged,
   emptyContextObject,
-} from './ReactFiberContext';
-import {readContext, checkIfContextChanged} from './ReactFiberNewContext';
+} from './ReactFiberContext.old';
+import {readContext, checkIfContextChanged} from './ReactFiberNewContext.old';
 import {
   requestEventTime,
   requestUpdateLane,
   scheduleUpdateOnFiber,
-} from './ReactFiberWorkLoop';
+} from './ReactFiberWorkLoop.old';
 import {logForceUpdateScheduled, logStateUpdateScheduled} from './DebugTracing';
 import {
   markForceUpdateScheduled,
   markStateUpdateScheduled,
   setIsStrictModeForDevtools,
-} from './ReactFiberDevToolsHook';
+} from './ReactFiberDevToolsHook.old';
 
-const fakeInternalInstance: {
-  _processChildContext?: () => empty,
-} = {};
+const fakeInternalInstance = {};
 
 let didWarnAboutStateAssignmentForComponent;
 let didWarnAboutUninitializedState;
@@ -92,18 +91,18 @@ let didWarnAboutContextTypeAndContextTypes;
 let didWarnAboutInvalidateContextType;
 
 if (__DEV__) {
-  didWarnAboutStateAssignmentForComponent = new Set<string>();
-  didWarnAboutUninitializedState = new Set<string>();
-  didWarnAboutGetSnapshotBeforeUpdateWithoutDidUpdate = new Set<string>();
-  didWarnAboutLegacyLifecyclesAndDerivedState = new Set<string>();
-  didWarnAboutDirectlyAssigningPropsToState = new Set<string>();
-  didWarnAboutUndefinedDerivedState = new Set<string>();
-  didWarnAboutContextTypeAndContextTypes = new Set<string>();
-  didWarnAboutInvalidateContextType = new Set<string>();
+  didWarnAboutStateAssignmentForComponent = new Set();
+  didWarnAboutUninitializedState = new Set();
+  didWarnAboutGetSnapshotBeforeUpdateWithoutDidUpdate = new Set();
+  didWarnAboutLegacyLifecyclesAndDerivedState = new Set();
+  didWarnAboutDirectlyAssigningPropsToState = new Set();
+  didWarnAboutUndefinedDerivedState = new Set();
+  didWarnAboutContextTypeAndContextTypes = new Set();
+  didWarnAboutInvalidateContextType = new Set();
 
-  const didWarnOnInvalidCallback = new Set<string>();
+  const didWarnOnInvalidCallback = new Set();
 
-  warnOnInvalidCallback = function (callback: mixed, callerName: string) {
+  warnOnInvalidCallback = function(callback: mixed, callerName: string) {
     if (callback === null || typeof callback === 'function') {
       return;
     }
@@ -119,7 +118,7 @@ if (__DEV__) {
     }
   };
 
-  warnOnUndefinedDerivedState = function (type: any, partialState: any) {
+  warnOnUndefinedDerivedState = function(type, partialState) {
     if (partialState === undefined) {
       const componentName = getComponentNameFromType(type) || 'Component';
       if (!didWarnAboutUndefinedDerivedState.has(componentName)) {
@@ -140,7 +139,7 @@ if (__DEV__) {
   // exception.
   Object.defineProperty(fakeInternalInstance, '_processChildContext', {
     enumerable: false,
-    value: function (): empty {
+    value: function() {
       throw new Error(
         '_processChildContext is not available in React 16+. This likely ' +
           'means you have multiple copies of React and are attempting to nest ' +
@@ -195,8 +194,7 @@ function applyDerivedStateFromProps(
 
 const classComponentUpdater = {
   isMounted,
-  // $FlowFixMe[missing-local-annot]
-  enqueueSetState(inst: any, payload: any, callback) {
+  enqueueSetState(inst, payload, callback) {
     const fiber = getInstance(inst);
     const eventTime = requestEventTime();
     const lane = requestUpdateLane(fiber);
@@ -229,7 +227,7 @@ const classComponentUpdater = {
       markStateUpdateScheduled(fiber, lane);
     }
   },
-  enqueueReplaceState(inst: any, payload: any, callback: null) {
+  enqueueReplaceState(inst, payload, callback) {
     const fiber = getInstance(inst);
     const eventTime = requestEventTime();
     const lane = requestUpdateLane(fiber);
@@ -264,8 +262,7 @@ const classComponentUpdater = {
       markStateUpdateScheduled(fiber, lane);
     }
   },
-  // $FlowFixMe[missing-local-annot]
-  enqueueForceUpdate(inst: any, callback) {
+  enqueueForceUpdate(inst, callback) {
     const fiber = getInstance(inst);
     const eventTime = requestEventTime();
     const lane = requestUpdateLane(fiber);
@@ -302,13 +299,13 @@ const classComponentUpdater = {
 };
 
 function checkShouldComponentUpdate(
-  workInProgress: Fiber,
-  ctor: any,
-  oldProps: any,
-  newProps: any,
-  oldState: any,
-  newState: any,
-  nextContext: any,
+  workInProgress,
+  ctor,
+  oldProps,
+  newProps,
+  oldState,
+  newState,
+  nextContext,
 ) {
   const instance = workInProgress.stateNode;
   if (typeof instance.shouldComponentUpdate === 'function') {
@@ -772,7 +769,7 @@ function constructClassInstance(
   return instance;
 }
 
-function callComponentWillMount(workInProgress: Fiber, instance: any) {
+function callComponentWillMount(workInProgress, instance) {
   const oldState = instance.state;
 
   if (typeof instance.componentWillMount === 'function') {
@@ -796,10 +793,10 @@ function callComponentWillMount(workInProgress: Fiber, instance: any) {
 }
 
 function callComponentWillReceiveProps(
-  workInProgress: Fiber,
-  instance: any,
-  newProps: any,
-  nextContext: any,
+  workInProgress,
+  instance,
+  newProps,
+  nextContext,
 ) {
   const oldState = instance.state;
   if (typeof instance.componentWillReceiveProps === 'function') {
@@ -876,10 +873,12 @@ function mountClassInstance(
       );
     }
 
-    ReactStrictModeWarnings.recordUnsafeLifecycleWarnings(
-      workInProgress,
-      instance,
-    );
+    if (warnAboutDeprecatedLifecycles) {
+      ReactStrictModeWarnings.recordUnsafeLifecycleWarnings(
+        workInProgress,
+        instance,
+      );
+    }
   }
 
   instance.state = workInProgress.memoizedState;

@@ -45,6 +45,7 @@ import {
 } from '../SchedulerProfiling';
 
 export type Callback = boolean => ?Callback;
+export type StackContainer = <T>(callback: () => T) => T;
 
 type Task = {
   id: number,
@@ -343,10 +344,30 @@ function unstable_wrapCallback<T: (...Array<mixed>) => mixed>(callback: T): T {
   };
 }
 
+function linkStack(name: string): StackContainer | null {
+  if (!__DEV__) return null;
+  if (typeof console === 'object' && 'createTask' in console) {
+    /* eslint-disable react-internal/no-production-logging */
+    // $FlowFixMe[prop-missing] Chrome only API
+    return console.createTask(name);
+  }
+  return null;
+}
+
+function linkStackCallback<T: (...args: Array<any>) => any>(name: string, callback: T): T {
+  if (__DEV__) {
+    var task = linkStack(name);
+    if (task) return function () {
+      task.run(callback.bind(this, ...arguments));
+    };
+  }
+  return callback;
+}
+
 function unstable_scheduleCallback(
   priorityLevel: PriorityLevel,
   callback: Callback,
-  options?: {delay: number},
+  options?: {delay: number, name?: string},
 ): Task {
   var currentTime = getCurrentTime();
 
@@ -386,7 +407,10 @@ function unstable_scheduleCallback(
 
   var newTask: Task = {
     id: taskIdCounter++,
-    callback,
+    callback: linkStackCallback(
+      options && options.name ? options.name : 'scheduler',
+      callback,
+    ),
     priorityLevel,
     startTime,
     expirationTime,
@@ -675,6 +699,8 @@ export {
   unstable_getFirstCallbackNode,
   getCurrentTime as unstable_now,
   forceFrameRate as unstable_forceFrameRate,
+  linkStack as unstable_linkStack,
+  linkStackCallback as unstable_linkStackCallback,
 };
 
 export const unstable_Profiling: {

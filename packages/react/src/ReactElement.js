@@ -125,6 +125,15 @@ function warnIfStringRefCannotBeAutoConverted(config) {
   }
 }
 
+function linkStack(name: string): any | null {
+  if (!__DEV__) return null;
+  if (typeof console === 'object' && 'createTask' in console) {
+    /* eslint-disable react-internal/no-production-logging */
+    // $FlowFixMe[prop-missing] Chrome only API
+    return console.createTask(name);
+  }
+  return null;
+}
 /**
  * Factory method to create a new React element. This no longer adheres to
  * the class pattern, so do not use new to call it. Also, instanceof check
@@ -191,6 +200,14 @@ const ReactElement = function (type, key, ref, self, source, owner, props) {
       enumerable: false,
       writable: false,
       value: source,
+    });
+    // Two elements created in different call stack should be considered
+    // equal for testing purposes and therefore we hide it from enumeration.
+    Object.defineProperty(element, '_stack', {
+      configurable: false,
+      enumerable: false,
+      writable: false,
+      value: linkStack('jsx'),
     });
     if (Object.freeze) {
       Object.freeze(element.props);

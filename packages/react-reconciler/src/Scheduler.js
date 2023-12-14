@@ -25,6 +25,9 @@ export const UserBlockingPriority = Scheduler.unstable_UserBlockingPriority;
 export const NormalPriority = Scheduler.unstable_NormalPriority;
 export const LowPriority = Scheduler.unstable_LowPriority;
 export const IdlePriority = Scheduler.unstable_IdlePriority;
+export const linkStack = Scheduler.unstable_linkStack;
+export const linkStackCallback = Scheduler.unstable_linkStackCallback;
+export type StackContainer = {run<T>(callback: () => T): T};
 export type SchedulerCallback = (isSync: boolean) => SchedulerCallback | null;
 
 // this doesn't actually exist on the scheduler, but it *does*
